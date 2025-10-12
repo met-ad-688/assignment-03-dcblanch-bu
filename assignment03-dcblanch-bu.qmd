@@ -1,0 +1,44 @@
+---
+title: Assignment 03
+author:
+  - name: Devin Blanchard
+    affiliations:
+      - id: bu
+        name: Boston University
+        city: Boston
+        state: MA
+number-sections: true
+date: '2025-09-24'
+format:
+  html:
+    theme: cerulean
+    toc: true
+    toc-depth: 2
+date-modified: today
+date-format: long
+execute:
+  echo: false
+  eval: false
+  freeze: auto
+---
+## Data Loading and Inspection
+
+```{python}
+import pandas as pd
+import plotly.express as px
+import plotly.io as pio
+from pyspark.sql import SparkSession
+
+# Start Spark session
+spark = SparkSession.builder.appName("LightcastData").getOrCreate()
+
+# Load the data
+df = spark.read.option("header", "true")\
+               .option("inferSchema", "true")\
+               .option("multiLine","true")\
+               .option("escape", "\"")\
+               .csv("data/lightcast_job_postings.csv")
+
+# Diagnostic check: print schema and show sample
+df.printSchema()
+df.show(5)
