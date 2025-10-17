@@ -51,10 +51,10 @@ df = spark.read.option("header", "true").option("inferSchema", "true").option("m
 df.createOrReplaceTempView("job_postings")
 
 # Show Schema and Sample Data
-print("---This is Diagnostic check, No need to print it in the final doc---")
+#print("---This is Diagnostic check, No need to print it in the final doc---")
 
-df.printSchema() # comment this line when rendering the submission
-df.show(5)
+#df.printSchema() # comment this line when rendering the submission
+#df.show(5)
 
 ```
 
@@ -64,11 +64,11 @@ df.show(5)
 ```{python}
 from pyspark.sql.functions import col
 
-df = df.withColumn("SALARY", col("SALARY").cast("double"))
-df = df.withColumn("SALARY_FROM", col("SALARY_FROM").cast("double"))
-df = df.withColumn("SALARY_TO", col("SALARY_TO").cast("double"))
-df = df.withColumn("MIN_YEARS_EXPERIENCE", col("MIN_YEARS_EXPERIENCE").cast("double"))
-df = df.withColumn("MAX_YEARS_EXPERIENCE", col("MAX_YEARS_EXPERIENCE").cast("double"))
+df = df.withColumn("SALARY", col("SALARY").cast("float"))
+df = df.withColumn("SALARY_FROM", col("SALARY_FROM").cast("float"))
+df = df.withColumn("SALARY_TO", col("SALARY_TO").cast("float"))
+df = df.withColumn("MIN_YEARS_EXPERIENCE", col("MIN_YEARS_EXPERIENCE").cast("float"))
+df = df.withColumn("MAX_YEARS_EXPERIENCE", col("MAX_YEARS_EXPERIENCE").cast("float"))
 
 # median_from, median_to, median_salary
 median_from = df.approxQuantile("SALARY_FROM", [0.5], 0.01)[0]
@@ -77,15 +77,21 @@ median_salary = df.approxQuantile("SALARY", [0.5], 0.01)[0]
 
 print(median_from, median_to, median_salary)
 
-from pyspark.sql.functions import when, isnan
+# Impute missing 'SALARY_FROM' and 'SALARY_TO' with their medians
+df = df.fillna({
+    "SALARY_FROM": median_from,
+    "SALARY_TO": median_to
+})
 
-# Compute average salary column
+# Compute 'AVERAGE_SALARY'
 df = df.withColumn(
     "AVERAGE_SALARY",
-    ((col("SALARY_FROM") + col("SALARY_TO")) / 2)
+    (col("SALARY_FROM") + col("SALARY_TO")) / 2
 )
 
-# Impute SALARY
+# Impute missing 'SALARY' with AVERAGE_SALARY, and if that's missing, with the median salary
+from pyspark.sql.functions import when
+
 df = df.withColumn(
     "SALARY",
     when(
@@ -102,8 +108,8 @@ df = df.withColumn(
     regexp_replace(col("EDUCATION_LEVELS_NAME"), r'[\n\r]', '')
 )
 
-# Adjust path as needed (overwrite mode)
-df.write.option("header", True).mode("overwrite").csv("../data/lightcast_job_postings_cleaned.csv")
+# Overwrite
+df.write.option("header", True).mode("overwrite").csv("data/lightcast_job_postings_cleaned.csv")
 
 # Display row count
 print(f"Rows retained after cleaning: {df.count()}")
@@ -113,23 +119,24 @@ print(f"Rows retained after cleaning: {df.count()}")
 ## Salary Distribution by Industry and Employment Type
 
 ```{python}
-import plotly.express as px
-
 # Filter for non-missing, nonzero salaries (use SALARY, not SALARY_FROM)
+
 plot_df = df.select("NAICS2_NAME", "SALARY").filter(col("SALARY") > 0).toPandas()
 
 fig = px.box(
     plot_df,
     x="NAICS2_NAME",
     y="SALARY",
-    points="all",        # Show all points like example
+    points="all",
     title="Salary Distribution by Industry",
 )
 
 fig.update_traces(
-    marker=dict(color='rgb(255,87,51)', opacity=0.5),
-    line=dict(color='rgb(255,87,51)'),
-    fillcolor='rgba(255,87,51,0.3)'
+    marker=dict(color='rgb(52,152,219)', opacity=0.5, size=4),
+    line=dict(color='rgb(41,128,185)'),
+    fillcolor='rgba(41,128,185,0.3)',
+    jitter=0,
+    pointpos=0
 )
 
 fig.update_layout(
@@ -138,10 +145,11 @@ fig.update_layout(
     font=dict(size=14, family="Arial"),
     plot_bgcolor="#F4F8FF",
     paper_bgcolor="#F4F8FF",
-    xaxis_tickangle=-45,
-    height=700,
-    width=1200,
-    showlegend=False
+    xaxis_tickangle=-90,
+    height=1200,
+    width=700,
+    showlegend=False,
+    boxmode='overlay'
 )
 
 fig.show()
@@ -149,3 +157,4 @@ fig.show()
 ```
 
 Salaries vary widely between industries, with sectors like Information and Finance & Insurance generally showing higher salary ranges than industries such as Accommodation and Food Services. Full-time positions tend to have higher median salaries across most industries compared to part-time or other employment types.
+
