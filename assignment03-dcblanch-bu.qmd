@@ -162,48 +162,19 @@ Salaries vary widely between industries, with sectors like Information and Finan
 ## Salary Analysis by ONET Occupation Type (Bubble Chart)
 
 ```{python}
-# Group by ONET_NAME and compute median salary & job count
-occupation_stats = (
-    df.filter(col("SALARY") > 0)
-      .groupBy("ONET_NAME")
-      .agg(
-          F.expr("percentile_approx(SALARY, 0.5)").alias("Median_Salary"),
-          F.count("*").alias("Job_Postings")
-      )
-      .orderBy(F.desc("Job_Postings"))
-)
+salary_analysis = spark.sql("""
+    SELECT
+        ONET_NAME AS Occupation_Name,
+        PERCENTILE(SALARY, 0.5) AS Median_Salary,
+        COUNT(*) AS Job_Postings
+    FROM job_postings
+    WHERE SALARY > 0 AND ONET_NAME IS NOT NULL AND ONET_NAME != ''
+    GROUP BY ONET_NAME
+    ORDER BY Job_Postings DESC
+    LIMIT 10
+""")
 
-# Convert to Pandas for plotting (optional: filter to top N if too many occupations)
-bubble_df = occupation_stats.toPandas()
-
-import plotly.express as px
-
-fig = px.scatter(
-    bubble_df,
-    x="ONET_NAME",
-    y="Median_Salary",
-    size="Job_Postings",
-    color="Job_Postings",
-    color_continuous_scale=px.colors.sequential.Viridis,
-    title="Salary Analysis by ONET Occupation Type (Bubble Chart)",
-    labels={"ONET_NAME": "ONET Occupation", "Median_Salary": "Median Salary", "Job_Postings": "Number of Job Postings"},
-    hover_name="ONET_NAME",
-    hover_data={
-        "Median_Salary": ":,.0f",
-        "Job_Postings": ":,",
-        "ONET_NAME": False
-    }
-)
-
-fig.update_layout(
-    font=dict(size=14, family="Arial"),
-    xaxis_tickangle=-45,
-    plot_bgcolor="#F4F8FF",
-    paper_bgcolor="#F4F8FF",
-    height=700,
-    width=1200
-)
-
-fig.show()
+salary_pd = salary_analysis.toPandas()
+salary_pd.head()
 
 ```
