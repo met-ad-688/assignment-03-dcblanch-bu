@@ -70,23 +70,23 @@ df = df.withColumn("SALARY_TO", col("SALARY_TO").cast("float"))
 df = df.withColumn("MIN_YEARS_EXPERIENCE", col("MIN_YEARS_EXPERIENCE").cast("float"))
 df = df.withColumn("MAX_YEARS_EXPERIENCE", col("MAX_YEARS_EXPERIENCE").cast("float"))
 
-# median_from, median_to, median_salary
+# Compute median salary
 median_from = df.approxQuantile("SALARY_FROM", [0.5], 0.01)[0]
 median_to = df.approxQuantile("SALARY_TO", [0.5], 0.01)[0]
 median_salary = df.approxQuantile("SALARY", [0.5], 0.01)[0]
 
-print(median_from, median_to, median_salary)
+print("Medians:",median_from, median_to, median_salary)
 
 # Impute missing 'SALARY_FROM' and 'SALARY_TO' with their medians
 df = df.fillna({
     "SALARY_FROM": median_from,
-    "SALARY_TO": median_to
+    "SALARY_TO": median_to,
+    "SALARY": median_salary
 })
 
 # Compute 'AVERAGE_SALARY'
 df = df.withColumn(
-    "AVERAGE_SALARY",
-    (col("SALARY_FROM") + col("SALARY_TO")) / 2
+    "AVERAGE_SALARY", (col("SALARY_FROM") + col("SALARY_TO")) / 2
 )
 
 # Impute missing 'SALARY' with AVERAGE_SALARY, and if that's missing, with the median salary
@@ -158,3 +158,52 @@ fig.show()
 
 Salaries vary widely between industries, with sectors like Information and Finance & Insurance generally showing higher salary ranges than industries such as Accommodation and Food Services. Full-time positions tend to have higher median salaries across most industries compared to part-time or other employment types.
 
+
+## Salary Analysis by ONET Occupation Type (Bubble Chart)
+
+```{python}
+# Group by ONET_NAME and compute median salary & job count
+occupation_stats = (
+    df.filter(col("SALARY") > 0)
+      .groupBy("ONET_NAME")
+      .agg(
+          F.expr("percentile_approx(SALARY, 0.5)").alias("Median_Salary"),
+          F.count("*").alias("Job_Postings")
+      )
+      .orderBy(F.desc("Job_Postings"))
+)
+
+# Convert to Pandas for plotting (optional: filter to top N if too many occupations)
+bubble_df = occupation_stats.toPandas()
+
+import plotly.express as px
+
+fig = px.scatter(
+    bubble_df,
+    x="ONET_NAME",
+    y="Median_Salary",
+    size="Job_Postings",
+    color="Job_Postings",
+    color_continuous_scale=px.colors.sequential.Viridis,
+    title="Salary Analysis by ONET Occupation Type (Bubble Chart)",
+    labels={"ONET_NAME": "ONET Occupation", "Median_Salary": "Median Salary", "Job_Postings": "Number of Job Postings"},
+    hover_name="ONET_NAME",
+    hover_data={
+        "Median_Salary": ":,.0f",
+        "Job_Postings": ":,",
+        "ONET_NAME": False
+    }
+)
+
+fig.update_layout(
+    font=dict(size=14, family="Arial"),
+    xaxis_tickangle=-45,
+    plot_bgcolor="#F4F8FF",
+    paper_bgcolor="#F4F8FF",
+    height=700,
+    width=1200
+)
+
+fig.show()
+
+```
