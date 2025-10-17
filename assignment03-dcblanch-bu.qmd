@@ -162,19 +162,62 @@ Salaries vary widely between industries, with sectors like Information and Finan
 ## Salary Analysis by ONET Occupation Type (Bubble Chart)
 
 ```{python}
+# Lot Occupation Name
 salary_analysis = spark.sql("""
     SELECT
-        ONET_NAME AS Occupation_Name,
+        LOT_OCCUPATION_NAME AS OCCUPATION_NAME,
         PERCENTILE(SALARY, 0.5) AS Median_Salary,
         COUNT(*) AS Job_Postings
     FROM job_postings
-    WHERE SALARY > 0 AND ONET_NAME IS NOT NULL AND ONET_NAME != ''
-    GROUP BY ONET_NAME
+    GROUP BY LOT_OCCUPATION_NAME
     ORDER BY Job_Postings DESC
     LIMIT 10
 """)
 
 salary_pd = salary_analysis.toPandas()
-salary_pd.head()
+
+import plotly.express as px
+
+fig = px.scatter(
+    salary_pd,
+    x="OCCUPATION_NAME",
+    y="Median_Salary",
+    size="Job_Postings",
+    title="Salary Analysis by LOT Occupation Type (Bubble Chart)",
+    labels={
+        "OCCUPATION_NAME": "LOT Occupation",
+        "Median_Salary": "Median Salary",
+        "Job_Postings": "Number of Job Postings"
+    },
+    hover_name="OCCUPATION_NAME",
+    size_max=60,
+    width=1000,
+    height=600,
+    color="Job_Postings",
+    color_continuous_scale="Viridis",
+)
+
+# Layout Customization
+fig.update_layout(
+    font_family="Arial",
+    font_size=14,
+    title_font_size=25,
+    xaxis_title="LOT Occupation",
+    yaxis_title="Median Salary",
+    plot_bgcolor="#f6f9fa",
+    xaxis=dict(
+        tickangle=-60,
+        showline=True,
+        linecolor="#444"
+    ),
+    yaxis=dict(
+        showline=True,
+        linecolor="#444"
+    ),
+    xaxis_title_font=dict(size=17),
+    yaxis_title_font=dict(size=17),
+)
+
+fig.show()
 
 ```
