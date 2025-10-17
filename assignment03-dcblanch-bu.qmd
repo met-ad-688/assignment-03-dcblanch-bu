@@ -105,4 +105,47 @@ df = df.withColumn(
 # Adjust path as needed (overwrite mode)
 df.write.option("header", True).mode("overwrite").csv("../data/lightcast_job_postings_cleaned.csv")
 
+# Display row count
+print(f"Rows retained after cleaning: {df.count()}")
+
 ```
+
+## Salary Distribution by Industry and Employment Type
+
+```{python}
+import plotly.express as px
+
+# Filter for non-missing, nonzero salaries (use SALARY, not SALARY_FROM)
+plot_df = df.select("NAICS2_NAME", "SALARY").filter(col("SALARY") > 0).toPandas()
+
+fig = px.box(
+    plot_df,
+    x="NAICS2_NAME",
+    y="SALARY",
+    points="all",        # Show all points like example
+    title="Salary Distribution by Industry",
+)
+
+fig.update_traces(
+    marker=dict(color='rgb(255,87,51)', opacity=0.5),
+    line=dict(color='rgb(255,87,51)'),
+    fillcolor='rgba(255,87,51,0.3)'
+)
+
+fig.update_layout(
+    xaxis_title="Industry",
+    yaxis_title="SALARY",
+    font=dict(size=14, family="Arial"),
+    plot_bgcolor="#F4F8FF",
+    paper_bgcolor="#F4F8FF",
+    xaxis_tickangle=-45,
+    height=700,
+    width=1200,
+    showlegend=False
+)
+
+fig.show()
+
+```
+
+Salaries vary widely between industries, with sectors like Information and Finance & Insurance generally showing higher salary ranges than industries such as Accommodation and Food Services. Full-time positions tend to have higher median salaries across most industries compared to part-time or other employment types.
