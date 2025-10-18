@@ -24,6 +24,7 @@ execute:
   freeze: auto
 --- 
 
+
 ## Data Loading and Inspection
 
 ```{python}
