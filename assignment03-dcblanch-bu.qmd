@@ -24,7 +24,6 @@ execute:
   freeze: auto
 --- 
 
-
 ## Data Loading and Inspection
 
 ```{python}
@@ -153,13 +152,13 @@ fig.update_layout(
 )
 
 fig.show()
+fig.write_image("figures/salary_distro_by_ind.png", scale=2)
 
 ```
-
 Salaries vary widely between industries, with sectors like Information and Finance & Insurance generally showing higher salary ranges than industries such as Accommodation and Food Services. Full-time positions tend to have higher median salaries across most industries compared to part-time or other employment types.
 
 
-## Salary Analysis by ONET Occupation Type (Bubble Chart)
+## Salary Analysis by Occupation (Bubble Chart)
 
 ```{python}
 # Lot Occupation Name
@@ -200,14 +199,21 @@ fig = px.scatter(
 
 # Layout Customization
 fig.update_layout(
+    title={
+        'text': "Salary Analysis by Occupation Type (Bubble Chart)",
+        'x': 0.5,
+        'xanchor': 'center',
+        },
     font_family="Arial",
     font_size=14,
     title_font_size=25,
     xaxis_title="LOT Occupation",
     yaxis_title="Median Salary",
     plot_bgcolor="#f6f9fa",
+    width=1000,
+    height=600,
     xaxis=dict(
-        tickangle=-60,
+        tickangle=-15,
         showline=True,
         linecolor="#444"
     ),
@@ -221,7 +227,9 @@ fig.update_layout(
 
 fig.show()
 
+fig.write_image("figures/salary_by_occupation.png", scale=2)
 ```
+The bubble chart reveals that certain occupations have much higher job posting volumes, while also revealing a broad range of median salaries. High-demand roles tend to cluster at higher salary levels, indicating strong competition for talent in these areas.
 
 
 ## Salary by Education Level
@@ -306,5 +314,141 @@ fig1.update_layout(
 )
 
 fig1.show()
-
+fig.write_image("figures/salary_by_education.png", scale=2)
 ```
+Salaries generally rise with years of experience, regardless of education level. In this dataset though, the “bachelor’s or lower” group actually shows a wider spread and sometimes even higher salaries than the master’s or PhD group. This could be because some top-paying roles in fields like tech, sales, or management don’t always require advanced degrees, or because the “bachelor’s or lower” category includes a lot of jobs where the education isn’t specifically listed, so there’s a lot of variation in pay.
+
+
+## Salary by Remote Work Type
+
+```{python}
+# Categorize remote work types
+
+df = df.withColumn(
+"REMOTE_GROUP",
+when(col("REMOTE_TYPE_NAME") == "Remote", "Remote")
+.when(col("REMOTE_TYPE_NAME") == "Hybrid", "Hybrid")
+.otherwise("Onsite")
+)
+
+# Ensure correct types
+
+df = df.withColumn("MAX_YEARS_EXPERIENCE", col("MAX_YEARS_EXPERIENCE").cast("float"))
+df = df.withColumn("Average_Salary", col("Average_Salary").cast("float"))
+
+# Filter out invalid rows
+
+df_remote = df.filter(
+(col("MAX_YEARS_EXPERIENCE").isNotNull()) &
+(col("Average_Salary").isNotNull()) &
+(col("MAX_YEARS_EXPERIENCE") > 0) &
+(col("Average_Salary") > 0)
+)
+
+# Convert to pandas
+
+df_remote_pd = df_remote.select(
+"MAX_YEARS_EXPERIENCE",
+"Average_Salary",
+"LOT_V6_SPECIALIZED_OCCUPATION_NAME",
+"REMOTE_GROUP"
+).toPandas()
+
+# Define colors
+
+remote_palette = {
+"Onsite": "#60A5FA",   # blue
+"Remote": "#E15759",   # red
+"Hybrid": "#7CCBA2"    # green
+}
+
+import plotly.express as px
+
+# Scatter plot: Experience vs Salary by Remote Work Type
+
+fig_remote = px.scatter(
+df_remote_pd,
+x="MAX_YEARS_EXPERIENCE",
+y="Average_Salary",
+color="REMOTE_GROUP",
+color_discrete_map=remote_palette,
+opacity=0.7,
+hover_data=["LOT_V6_SPECIALIZED_OCCUPATION_NAME"],
+title="<b>Experience vs Salary by Remote Work Type</b>"
+)
+
+fig_remote.update_traces(marker=dict(size=7, line=dict(width=1, color="black")))
+fig_remote.update_layout(
+plot_bgcolor="#F7FFF9",
+paper_bgcolor="#E9FFF0",
+font=dict(family="Segoe UI", size=14),
+title_font=dict(size=22),
+xaxis_title="Years of Experience",
+yaxis_title="Average Salary (USD)",
+legend_title="Remote Work Type",
+hoverlabel=dict(bgcolor="white", font_size=13, font_family="Arial"),
+margin=dict(t=70, b=60, l=60, r=60),
+xaxis=dict(
+gridcolor="lightgrey",
+tickmode="linear",
+dtick=1,
+zeroline=False
+),
+yaxis=dict(
+gridcolor="lightgrey",
+zeroline=False
+)
+)
+fig_remote.show()
+fig.write_image("figures/salary_by_remote_type.png", scale=2)
+```
+The scatter plot shows that average salary generally increases with years of experience for both remote and onsite positions. There is no dramatic separation between the two work types, but remote roles appear somewhat more concentrated at mid-level experience, while onsite roles are distributed more broadly across the experience range.
+
+```{python}
+# Onsite salary histogram
+group_df1 = df_remote_pd[df_remote_pd["REMOTE_GROUP"] == "Onsite"]
+fig_hist1 = px.histogram(
+    group_df1,
+    x="Average_Salary",
+    nbins=40,
+    title="Salary Distribution: Onsite",
+    color_discrete_sequence=["#1f77b4"]
+)
+fig_hist1.update_layout(
+    plot_bgcolor="#F9F9FF",
+    paper_bgcolor="#FCFFF8",
+    font=dict(family="Segoe UI", size=13),
+    title_font=dict(size=20),
+    xaxis_title="Average Salary (USD)",
+    yaxis_title="Number of Job Postings",
+    margin=dict(t=70, b=60, l=60, r=60),
+)
+fig_hist1.show()
+fig_hist1.write_image("figures/onsite_salary_hist.png", scale=2)
+```
+The salary distribution for onsite roles is tightly clustered, with most job postings offering salaries around the $100,000 mark. There are relatively few onsite positions at significantly higher salary levels, and the distribution drops off sharply past $150,000.
+
+```{python}
+# Remote salary histogram
+
+group_df2 = df_remote_pd[df_remote_pd["REMOTE_GROUP"] == "Remote"]
+fig_hist2 = px.histogram(
+group_df2,
+x="Average_Salary",
+nbins=40,
+title="Salary Distribution: Remote",
+color_discrete_sequence=["#ef553b"]
+)
+fig_hist2.update_layout(
+plot_bgcolor="#F9F9FF",
+paper_bgcolor="#FCFFF8",
+font=dict(family="Segoe UI", size=13),
+title_font=dict(size=20),
+xaxis_title="Average Salary (USD)",
+yaxis_title="Number of Job Postings",
+margin=dict(t=70, b=60, l=60, r=60),
+)
+fig_hist2.show()
+fig_hist2.write_image("figures/remote_salary_hist.png", scale=2)
+```
+The salary distribution for remote roles is also centered near $100,000, but it shows a broader spread of salaries compared to onsite roles. There are slightly more remote postings with higher and lower salary extremes, suggesting greater variability in remote job pay.
